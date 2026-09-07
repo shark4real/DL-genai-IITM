@@ -101,6 +101,25 @@ li{margin:7px 0}
 .muted{color:var(--text-muted)}
 .small{font-size:13.5px}
 
+/* ---------- repo banner ---------- */
+.repo-note{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;
+  background:var(--series-soft);border:1px solid var(--border);
+  border-left:3px solid var(--series-1);
+  border-radius:10px;padding:13px 16px;margin:24px 0 0;
+  font-size:13.5px;color:var(--text-secondary);
+}
+.repo-note .rlbl{
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-muted);font-weight:650;
+}
+.repo-note a{color:var(--series-1);font-weight:600;text-decoration:none;word-break:break-all}
+.repo-note a:hover{text-decoration:underline}
+.repo-note .priv{
+  font-size:11.5px;border:1px solid var(--border-strong);border-radius:100px;
+  padding:2px 9px;color:var(--text-muted);white-space:nowrap;
+}
+
 /* ---------- hero ---------- */
 header.hero{padding:56px 0 44px}
 .hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 30px}
@@ -244,6 +263,14 @@ footer a{color:var(--text-secondary)}
 </nav>
 
 <main>
+
+<div class="repo-note">
+  <span class="rlbl">Repository</span>
+  <span>All files for this project live at
+    <a href="https://github.com/shark4real/dlgenai-t22026" target="_blank" rel="noopener">github.com/shark4real/dlgenai-t22026</a>
+    — notebooks, training scripts, and submissions.</span>
+  <span class="priv">Temporarily private</span>
+</div>
 
 <header class="hero">
   <p class="eyebrow">Deep Learning &amp; GenAI · Course Project · T2 2026</p>
