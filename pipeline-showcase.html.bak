@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="#2a78d6">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart MCQ Solver — Pipeline Walkthrough</title>
+<style>
+:root{
+  color-scheme: light;
+  --surface-0:#f6f5f3;
+  --surface-1:#fcfcfb;
+  --surface-2:#f0efec;
+  --border:#dedcd6;
+  --border-strong:#c6c3bb;
+  --text-primary:#0b0b0b;
+  --text-secondary:#52514e;
+  --text-muted:#78766f;
+  --series-1:#2a78d6;
+  --series-soft:#e7f0fc;
+  --code-bg:#f7f7f5;
+  --accent-line:#b6b3aa;
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-0:#121211;
+  --surface-1:#1a1a19;
+  --surface-2:#232322;
+  --border:#33332f;
+  --border-strong:#4a4a45;
+  --text-primary:#ffffff;
+  --text-secondary:#c3c2b7;
+  --text-muted:#93918a;
+  --series-1:#3987e5;
+  --series-soft:#1e2a3a;
+  --code-bg:#141413;
+  --accent-line:#5c5b55;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --surface-0:#121211; --surface-1:#1a1a19; --surface-2:#232322;
+    --border:#33332f; --border-strong:#4a4a45;
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#93918a;
+    --series-1:#3987e5; --series-soft:#1e2a3a; --code-bg:#141413; --accent-line:#5c5b55;
+  }
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:72px}
+body{
+  margin:0;
+  background:var(--surface-0);
+  color:var(--text-primary);
+  font:16px/1.62 ui-sans-serif,-apple-system,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+
+/* ---------- nav ---------- */
+nav{
+  position:sticky; top:0; z-index:50;
+  background:color-mix(in srgb, var(--surface-1) 92%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.nav-in{max-width:1040px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:6px;height:56px;overflow-x:auto}
+.nav-brand{font-weight:650;font-size:14px;margin-right:14px;white-space:nowrap}
+nav a{
+  color:var(--text-secondary); text-decoration:none; font-size:13.5px;
+  padding:6px 10px; border-radius:6px; white-space:nowrap;
+}
+nav a:hover{background:var(--surface-2); color:var(--text-primary)}
+.theme-btn{
+  margin-left:auto; border:1px solid var(--border); background:var(--surface-1);
+  color:var(--text-secondary); border-radius:6px; padding:5px 11px; font-size:12.5px;
+  cursor:pointer; white-space:nowrap;
+}
+.theme-btn:hover{border-color:var(--border-strong); color:var(--text-primary)}
+
+/* ---------- layout ---------- */
+main{max-width:1040px;margin:0 auto;padding:0 28px 96px}
+section{padding:52px 0; border-top:1px solid var(--border)}
+section:first-of-type{border-top:none}
+h1{font-size:34px;line-height:1.2;letter-spacing:-.02em;margin:0 0 10px;font-weight:680}
+h2{font-size:22px;letter-spacing:-.015em;margin:0 0 6px;font-weight:650}
+h3{font-size:15.5px;margin:26px 0 8px;font-weight:640}
+.eyebrow{
+  font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-muted);font-weight:600;margin:0 0 10px;
+}
+.lede{color:var(--text-secondary);font-size:16.5px;max-width:68ch;margin:0 0 4px}
+p{max-width:74ch;color:var(--text-secondary);margin:12px 0}
+p strong,li strong{color:var(--text-primary);font-weight:620}
+ul{max-width:74ch;color:var(--text-secondary);padding-left:20px}
+li{margin:7px 0}
+.muted{color:var(--text-muted)}
+.small{font-size:13.5px}
+
+/* ---------- hero ---------- */
+header.hero{padding:56px 0 44px}
+.hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 30px}
+.pill{
+  font-size:12.5px;border:1px solid var(--border);background:var(--surface-1);
+  color:var(--text-secondary);border-radius:100px;padding:4px 12px;
+}
+.pill.on{border-color:var(--series-1);color:var(--series-1);font-weight:600}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+.tile{
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:10px;padding:16px 18px;
+}
+.tile .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.tile .v{font-size:27px;font-weight:660;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums}
+.tile .s{font-size:12.5px;color:var(--text-muted);margin-top:3px}
+
+/* ---------- chart ---------- */
+figure{margin:22px 0 0;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:20px 22px}
+figcaption{font-size:13px;color:var(--text-muted);margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.chart-title{font-size:14.5px;font-weight:640;margin-bottom:2px}
+.chart-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:20px}
+.bars{position:relative;padding-top:18px}
+.bar-row{display:grid;grid-template-columns:190px 1fr 58px;align-items:center;gap:14px;margin:11px 0;position:relative;z-index:2}
+.bar-label{font-size:13.5px;color:var(--text-secondary);text-align:right;line-height:1.3}
+.bar-track{height:22px;position:relative}
+.bar-fill{
+  height:22px;background:var(--series-1);
+  border-radius:0 4px 4px 0;
+  transition:width .5s ease;
+}
+.bar-val{font-size:13.5px;font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:600}
+.baseline{
+  position:absolute;top:0;bottom:26px;width:0;
+  border-left:1.5px dashed var(--accent-line);z-index:3;pointer-events:none;
+}
+.baseline span{
+  position:absolute;top:-16px;left:7px;font-size:11.5px;color:var(--text-muted);white-space:nowrap;
+}
+.axis{display:grid;grid-template-columns:190px 1fr 58px;gap:14px;margin-top:10px}
+.axis-line{position:relative;height:20px;border-top:1px solid var(--border)}
+.axis-line span{position:absolute;top:4px;font-size:11.5px;color:var(--text-muted);transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.bar-row[data-win="1"] .bar-val::after{
+  content:"WINNER";display:block;font-size:9.5px;letter-spacing:.08em;
+  color:var(--series-1);font-weight:700;margin-top:-2px;
+}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%;margin:18px 0;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border)}
+th{
+  font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border-strong);
+}
+td{color:var(--text-secondary)}
+td:first-child{color:var(--text-primary);font-weight:550}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.hl td{background:var(--series-soft)}
+tr.hl td:first-child{font-weight:640}
+.tbl-wrap{overflow-x:auto}
+
+/* ---------- code ---------- */
+pre{
+  background:var(--code-bg);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;overflow-x:auto;font-size:12.8px;line-height:1.6;
+  color:var(--text-primary);margin:14px 0;
+}
+.cap{font-size:11.5px;color:var(--text-muted);margin:16px 0 -6px;letter-spacing:.04em}
+.cap code{font-size:11.5px}
+:not(pre)>code{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:4px;
+  padding:1px 5px;font-size:.875em;color:var(--text-primary);
+}
+.c{color:var(--text-muted)}
+.kw{color:var(--series-1)}
+
+/* ---------- callout ---------- */
+.note{
+  border-left:2.5px solid var(--series-1);background:var(--surface-1);
+  border-radius:0 8px 8px 0;padding:14px 18px;margin:20px 0;
+}
+.note .t{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--series-1);font-weight:700;margin-bottom:5px}
+.note p{margin:0;font-size:14.5px}
+.note p+p{margin-top:9px}
+
+/* ---------- cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.card h4{margin:0 0 3px;font-size:14.5px;font-weight:640}
+.card .r{font-size:12.5px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.card p{font-size:13.5px;margin:9px 0 0}
+
+/* ---------- sample question ---------- */
+.qbox{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin:18px 0}
+.qprompt{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:14px}
+.opt{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--border);font-size:13.5px;color:var(--text-secondary)}
+.opt .let{
+  font-weight:700;font-size:12.5px;color:var(--text-muted);
+  font-family:ui-monospace,monospace;padding-top:1px;
+}
+.opt.correct .let{color:var(--series-1)}
+.opt.correct{color:var(--text-primary)}
+.diff{background:var(--series-soft);border-bottom:1.5px solid var(--series-1);padding:0 2px;border-radius:2px;color:var(--text-primary);font-weight:600}
+.qtag{font-size:11.5px;color:var(--text-muted);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+footer{border-top:1px solid var(--border);padding:26px 0;font-size:13px;color:var(--text-muted);max-width:1040px;margin:0 auto;padding-left:28px;padding-right:28px}
+footer a{color:var(--text-secondary)}
+
+@media (max-width:860px){
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  .cards,.two{grid-template-columns:1fr}
+  .bar-row,.axis{grid-template-columns:120px 1fr 52px}
+  main,.nav-in,footer{padding-left:18px;padding-right:18px}
+  h1{font-size:27px}
+}
+@media print{
+  nav,.theme-btn{display:none}
+  body{background:#fff}
+  section{page-break-inside:avoid;padding:26px 0}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <span class="nav-brand">Smart MCQ Solver</span>
+    <a href="#task">Task</a>
+    <a href="#data">Data</a>
+    <a href="#cv">Validation</a>
+    <a href="#models">Models</a>
+    <a href="#results">Results</a>
+    <a href="#ensemble">Ensemble</a>
+    <a href="#engineering">Engineering</a>
+    <a href="#next">Next</a>
+    <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+  </div>
+</nav>
+
+<main>
+
+<header class="hero">
+  <p class="eyebrow">Deep Learning &amp; GenAI · Course Project · T2 2026</p>
+  <h1>Smart MCQ Solver</h1>
+  <p class="lede">
+    Ranking the top-3 most likely answers for 5-way multiple-choice questions, scored by MAP@3.
+    Three models built from different families — a CNN written from scratch, a fine-tuned
+    DeBERTa-v3, and a TF-IDF linear baseline — validated under a leakage-aware CV scheme
+    and combined by a weight search on out-of-fold predictions.
+  </p>
+  <div class="hero-meta">
+    <span class="pill on">MAP@3</span>
+    <span class="pill">PyTorch</span>
+    <span class="pill">Transformers</span>
+    <span class="pill">scikit-learn</span>
+    <span class="pill">GroupKFold CV</span>
+    <span class="pill">AMP · T4 ×2</span>
+    <span class="pill">Weights &amp; Biases</span>
+  </div>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="k">Best OOF MAP@3</div>
+      <div class="v">0.682</div>
+      <div class="s">weighted 3-model blend</div>
+    </div>
+    <div class="tile">
+      <div class="k">Kaggle LB</div>
+      <div class="v">~0.75</div>
+      <div class="s">best submitted run</div>
+    </div>
+    <div class="tile">
+      <div class="k">Random baseline</div>
+      <div class="v">0.367</div>
+      <div class="s">5 options, 3 guesses</div>
+    </div>
+    <div class="tile">
+      <div class="k">Training rows</div>
+      <div class="v">2,000</div>
+      <div class="s">500 unlabelled test</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TASK ============ -->
+<section id="task">
+  <p class="eyebrow">01 — The problem</p>
+  <h2>Five plausible answers, one correct, three guesses</h2>
+  <p>
+    Each row is a question plus five candidate answers. The submission is an ordered top-3,
+    scored by <strong>Mean Average Precision @ 3</strong>: 1.0 if the correct option is ranked first,
+    0.5 if second, 0.33 if third, 0 otherwise. That metric shapes every decision downstream —
+    early stopping, hyperparameter selection and blend weights are all scored on MAP@3 directly
+    rather than on validation loss.
+  </p>
+
+  <p class="cap">A real training row (<code>train.csv</code>, id 2) — highlights mark where the distractors diverge</p>
+  <div class="qbox">
+    <div class="qprompt">What is accelerator-based light-ion fusion?</div>
+
+    <div class="opt correct">
+      <span class="let">A</span>
+      <span>…sufficient to induce <span class="diff">light-ion fusion</span> reactions. This method is relatively
+      <span class="diff">easy</span> to implement and can be done in an efficient manner… Fusion can be observed
+      with as little as <span class="diff">10 kV</span> between the electrodes.</span>
+    </div>
+    <div class="opt">
+      <span class="let">B</span>
+      <span>…sufficient to induce <span class="diff">heavy-ion fusion</span> reactions. This method is relatively
+      <span class="diff">difficult</span> to implement and requires a complex system… as little as
+      <span class="diff">10 kV</span>.</span>
+    </div>
+    <div class="opt">
+      <span class="let">C</span>
+      <span>…sufficient to induce <span class="diff">light-ion fusion</span> reactions. This method is relatively
+      <span class="diff">difficult</span> to implement and requires a complex system… as little as
+      <span class="diff">100 kV</span>.</span>
+    </div>
+    <div class="opt">
+      <span class="let">D</span>
+      <span>…sufficient to induce <span class="diff">heavy-ion fusion</span> reactions. This method is relatively
+      <span class="diff">easy</span> to implement… as little as <span class="diff">100 kV</span>.</span>
+    </div>
+    <div class="opt">
+      <span class="let">E</span>
+      <span>…sufficient to induce <span class="diff">light-ion fission</span> reactions. This method is relatively
+      <span class="diff">easy</span> to implement… as little as <span class="diff">10 kV</span>.</span>
+    </div>
+    <div class="qtag">Correct: <strong>A</strong> · All five options share ~90% of their tokens.</div>
+  </div>
+
+  <div class="note">
+    <div class="t">Why this is hard</div>
+    <p>
+      Distractors are <strong>minimal edits</strong> of the correct answer — one swapped word
+      (<code>fusion</code>→<code>fission</code>, <code>light-ion</code>→<code>heavy-ion</code>) or one changed
+      number. Bag-of-words similarity to the prompt gets you partway, but separating A from C means
+      resolving a factual claim, not matching surface overlap. This is also why an ensemble helps:
+      the n-gram model and the transformer fail on different rows.
+    </p>
+  </div>
+</section>
+
+<!-- ============ DATA ============ -->
+<section id="data">
+  <p class="eyebrow">02 — The data</p>
+  <h2>2,000 labelled rows, and two structural quirks</h2>
+
+  <div class="two">
+    <div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Property</th><th class="num">Value</th></tr></thead>
+        <tbody>
+          <tr><td>Train / test rows</td><td class="num">2,000 / 500</td></tr>
+          <tr><td>Mean prompt length</td><td class="num">117 chars</td></tr>
+          <tr><td>Mean option length</td><td class="num">164 chars</td></tr>
+          <tr><td>Duplicate prompts</td><td class="num">242</td></tr>
+          <tr><td>Unique option sets</td><td class="num">588</td></tr>
+          <tr><td>Option sets shared with test</td><td class="num">227</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Answer</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+        <tbody>
+          <tr><td>A</td><td class="num">369</td><td class="num">18.5%</td></tr>
+          <tr><td>B</td><td class="num">490</td><td class="num">24.5%</td></tr>
+          <tr><td>C</td><td class="num">459</td><td class="num">23.0%</td></tr>
+          <tr><td>D</td><td class="num">358</td><td class="num">17.9%</td></tr>
+          <tr><td>E</td><td class="num">324</td><td class="num">16.2%</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="small muted">
+        B is over-represented at 24.5%. Both deep models score each option with a
+        <em>shared</em> encoder and softmax across the five, so there is no per-position
+        parameter for the model to exploit.
+      </p>
+    </div>
+  </div>
+
+  <h3>Quirk 1 — templated wrappers around the real question</h3>
+  <p>
+    Prompts are padded with boilerplate: <code>"Pick the best possible answer: … among the listed
+    options."</code> Two regexes strip it so every model sees the actual question.
+  </p>
+  <pre><span class="c"># cell 11 — text normalisation</span>
+PREFIX_RE = re.compile(r'^(pick|choose|select)\s+the\s+best\s+(possible\s+)?answer[:\s-]*', re.I)
+SUFFIX_RE = re.compile(r'\s+(among the listed options|carefully)\.?$', re.I)
+
+<span class="kw">def</span> clean_text(s):
+    s = SUFFIX_RE.sub('', PREFIX_RE.sub('', str(s).replace('\n', ' ')))
+    <span class="kw">return</span> re.sub(r'\s+', ' ', s).strip()</pre>
+
+  <h3>Quirk 2 — the same five options reappear across hundreds of rows</h3>
+  <p>
+    2,000 questions draw on only <strong>588 unique option sets</strong>, and
+    <strong>227 of those sets also appear in the test file</strong>. That is a leakage trap,
+    and it drives the validation design in the next section.
+  </p>
+</section>
+
+<!-- ============ CV ============ -->
+<section id="cv">
+  <p class="eyebrow">03 — Validation design</p>
+  <h2>Group-aware CV, because random K-fold would lie</h2>
+  <p>
+    With option sets repeating this heavily, a random split puts near-duplicate rows on both sides
+    of the train/validation boundary. The model memorises the option set in training and gets
+    rewarded for it in validation — the score goes up and generalisation does not.
+  </p>
+  <p>
+    The fix: build a canonical <code>optset_key</code> — the five options normalised, punctuation
+    stripped, sorted and joined — and use it as the grouping key for <code>GroupKFold</code>.
+    An option set now lives entirely inside one fold.
+  </p>
+
+  <pre><span class="c"># cell 11 + 13 — grouping key, then group-aware folds</span>
+df['optset_key'] = df[OPTIONS].apply(
+    <span class="kw">lambda</span> r: ' || '.join(sorted(norm_for_key(x) <span class="kw">for</span> x <span class="kw">in</span> r)), axis=1)
+
+folds = list(GroupKFold(n_splits=3).split(train, y, groups=train['optset_key']))
+<span class="c"># 3-fold sizes: [667, 667, 666]</span></pre>
+
+  <p class="cap">Metric implementation used everywhere — early stopping, HP search, blend selection</p>
+  <pre><span class="kw">def</span> map3(probs, y_true):
+    order = np.argsort(-np.asarray(probs), axis=1)[:, :3]
+    score = 0.0
+    <span class="kw">for</span> i, true_idx <span class="kw">in</span> enumerate(y_true):
+        hit = np.where(order[i] == true_idx)[0]
+        <span class="kw">if</span> len(hit):
+            score += 1.0 / (hit[0] + 1)
+    <span class="kw">return</span> score / len(y_true)</pre>
+
+  <div class="note">
+    <div class="t">Interview note</div>
+    <p>
+      This is the single decision I would defend hardest. It <em>lowers</em> the reported CV score,
+      which feels like going backwards, but it is the only version of the number that tracks the
+      leaderboard. Every model below is compared on this same grouped split, so the comparison
+      between them is honest too.
+    </p>
+  </div>
+</section>
+
+<!-- ============ MODELS ============ -->
+<section id="models">
+  <p class="eyebrow">04 — Three models</p>
+  <h2>One from scratch, one pretrained, one classical</h2>
+  <p>
+    The three were chosen to fail differently: no shared vocabulary, no shared inductive bias,
+    no shared training regime. All three emit a probability distribution over the five options,
+    so they are directly blendable.
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <h4>1 · CNN from scratch</h4>
+      <div class="r">OOF MAP@3 0.634 · top-1 0.531</div>
+      <p>Word-level vocab (2,994 tokens kept), 192-d embedding, three parallel Conv1d branches
+      with kernels 3/5/7, max-pool, MLP head → one scalar per option.</p>
+    </div>
+    <div class="card">
+      <h4>2 · DeBERTa-v3-base</h4>
+      <div class="r">OOF MAP@3 0.576 · top-1 0.425</div>
+      <p>Fine-tuned multiple-choice head, each (prompt, option) pair tokenised as a sentence
+      pair at max_len 256. Effective batch 16 via grad accumulation.</p>
+    </div>
+    <div class="card">
+      <h4>3 · TF-IDF + LogReg</h4>
+      <div class="r">OOF MAP@3 0.657 · top-1 0.524</div>
+      <p>Word 1–2 grams (11k features) + char_wb 3–5 grams (24k) plus nine hand-built
+      numeric features. CPU-only, trains in seconds.</p>
+    </div>
+  </div>
+
+  <h3>Shared design: score each option independently, softmax across five</h3>
+  <p>
+    Both neural models run the <em>same</em> encoder over all five options and produce one scalar
+    each, then softmax over the five scores. The encoder never sees which slot it is scoring, so
+    the model cannot learn "B is often right" — it has to score each option on its own merits.
+  </p>
+  <pre><span class="c"># cell 18 — the whole scratch model, shared encoder over 5 options</span>
+<span class="kw">class</span> ScratchCNN(nn.Module):
+    <span class="kw">def</span> __init__(self, vocab_size, embed_dim, channels, dropout):
+        super().__init__()
+        self.emb   = nn.Embedding(vocab_size, embed_dim, padding_idx=PAD)
+        self.convs = nn.ModuleList([nn.Conv1d(embed_dim, channels, k, padding=k//2)
+                                    <span class="kw">for</span> k <span class="kw">in</span> (3, 5, 7)])
+        self.head  = nn.Sequential(nn.Linear(channels*3, channels), nn.ReLU(),
+                                   nn.Dropout(dropout), nn.Linear(channels, 1))
+
+    <span class="kw">def</span> forward(self, x):                      <span class="c"># x: (batch, 5, seq_len)</span>
+        b, k, l = x.shape
+        z = self.emb(x.view(b*k, l)).transpose(1, 2)   <span class="c"># fold options into batch</span>
+        pooled = [F.adaptive_max_pool1d(F.relu(c(z)), 1).squeeze(-1) <span class="kw">for</span> c <span class="kw">in</span> self.convs]
+        h = self.drop(torch.cat(pooled, dim=1))
+        <span class="kw">return</span> self.head(h).view(b, k)         <span class="c"># one score per option</span></pre>
+
+  <h3>Hyperparameter search, budgeted per model</h3>
+  <p>
+    A full grid over three folds is unaffordable for the transformer, so each model gets a search
+    sized to its cost — and every trial is scored on <strong>val MAP@3</strong>, not val loss.
+  </p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Model</th><th>Search</th><th>Budget</th><th>Winner</th></tr></thead>
+    <tbody>
+      <tr><td>Scratch CNN</td><td>4-point grid over lr / dropout / channels</td><td>fold 0, 4 epochs</td><td class="mono">lr 1e-3, dropout 0.10, ch 128</td></tr>
+      <tr><td>DeBERTa-v3</td><td>LR screen, 3 values</td><td>333-row subsample, 1 epoch</td><td class="mono">lr 1e-5</td></tr>
+      <tr><td>TF-IDF</td><td>C ∈ {0.3, 1, 3, 10}</td><td>full fold 0</td><td class="mono">C = 1.0</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small muted">
+    The CNN search picked the <em>smallest, most regularised</em> candidate — expected with
+    2,000 training rows. Train loss still drops 0.95 → 0.25 within four epochs while val loss
+    climbs, so early stopping on val MAP@3 (patience 3) usually keeps epoch 1 or 2.
+  </p>
+
+  <h3>Model 3 in one snippet: binary reframing</h3>
+  <p>
+    Instead of a 5-way classifier, each (prompt, option) pair becomes a binary example —
+    "is this the correct one?" At prediction time the five margins for a row are reshaped and
+    softmaxed back into a proper distribution.
+  </p>
+  <pre><span class="c"># cell 36/40 — 9 numeric features per option, alongside the sparse n-grams</span>
+rows.append([
+    lens[j],                        <span class="c"># option length</span>
+    len(o_words),                   <span class="c"># word count</span>
+    j,                              <span class="c"># positional index</span>
+    lens[j] / lens.mean(),          <span class="c"># length relative to row mean</span>
+    float(lens[j] == lens.max()),   <span class="c"># is-longest flag</span>
+    float(lens[j] == lens.min()),   <span class="c"># is-shortest flag</span>
+    inter / union,                  <span class="c"># Jaccard overlap with prompt</span>
+    inter / len(o_words),           <span class="c"># containment in prompt</span>
+    sum(ch.isdigit() <span class="kw">for</span> ch <span class="kw">in</span> str(r[opt])),
+])</pre>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section id="results">
+  <p class="eyebrow">05 — Results</p>
+  <h2>The linear model beat the transformer</h2>
+
+  <figure>
+    <div class="chart-title">Out-of-fold MAP@3 by model</div>
+    <div class="chart-sub">3-fold GroupKFold on <span class="mono">optset_key</span>, 2,000 training rows · higher is better</div>
+    <div class="bars">
+      <div class="baseline" style="left:calc(190px + 14px + (0.367/0.75)*(100% - 190px - 14px - 58px - 14px));">
+        <span>random 0.367</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">CNN from scratch</div>
+        <div class="bar-track"><div class="bar-fill" style="width:84.5%"></div></div>
+        <div class="bar-val">0.634</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">DeBERTa-v3-base</div>
+        <div class="bar-track"><div class="bar-fill" style="width:76.8%"></div></div>
+        <div class="bar-val">0.576</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">TF-IDF + LogReg</div>
+        <div class="bar-track"><div class="bar-fill" style="width:87.6%"></div></div>
+        <div class="bar-val">0.657</div>
+      </div>
+      <div class="bar-row" data-win="1">
+        <div class="bar-label">Weighted blend<br><span class="small muted">0.2 / 0.7 / 0.1</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:90.9%"></div></div>
+        <div class="bar-val">0.682</div>
+      </div>
+      <div class="axis">
+        <div></div>
+        <div class="axis-line">
+          <span style="left:0%">0</span>
+          <span style="left:33.3%">0.25</span>
+          <span style="left:66.7%">0.50</span>
+          <span style="left:100%">0.75</span>
+        </div>
+        <div></div>
+      </div>
+    </div>
+    <figcaption>
+      Random guessing scores 0.367 — (1 + 1/2 + 1/3)/5 with five options and three guesses.
+      All four candidates clear it comfortably.
+    </figcaption>
+  </figure>
+
+  <h3>Per-fold detail — and the fold that collapsed</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Model</th><th class="num">Fold 0</th><th class="num">Fold 1</th><th class="num">Fold 2</th><th class="num">Pooled OOF</th><th class="num">Top-1 acc</th></tr></thead>
+    <tbody>
+      <tr><td>CNN from scratch</td><td class="num">0.6307</td><td class="num">0.6564</td><td class="num">0.6144</td><td class="num">0.6338</td><td class="num">0.5305</td></tr>
+      <tr><td>DeBERTa-v3-base</td><td class="num">0.6524</td><td class="num">0.3981</td><td class="num">0.6529</td><td class="num">0.5761</td><td class="num">0.4250</td></tr>
+      <tr><td>TF-IDF + LogReg</td><td class="num">0.6822</td><td class="num">0.6284</td><td class="num">0.6612</td><td class="num">0.6573</td><td class="num">0.5240</td></tr>
+      <tr class="hl"><td>Weighted blend</td><td class="num" colspan="3">—</td><td class="num">0.6822</td><td class="num">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <div class="t">What happened in DeBERTa fold 1</div>
+    <p>
+      Val loss pinned at <strong>1.609 ≈ ln 5</strong> for all three epochs — the model never escaped
+      the uniform prior and produced a MAP@3 of 0.398, barely above random. Folds 0 and 2 hit 0.652
+      and 0.653, the best single-fold numbers anywhere in the project. One diverged fold out of three
+      dragged the pooled headline down to 0.576.
+    </p>
+    <p>
+      This is the honest story of fine-tuning a ~180M-parameter model on 2,000 rows: it is
+      data-starved and unstable. I kept the collapsed fold in the reported number rather than
+      re-seeding until it looked good — and the blend search recovers the signal anyway.
+    </p>
+  </div>
+  <pre class="small"><span class="c"># cell 34 — training log, fold 1</span>
+HF fold 1 epoch 1: train_loss=1.6075  val_loss=1.6100  val_MAP@3=0.4118
+HF fold 1 epoch 2: train_loss=1.6109  val_loss=1.6094  val_MAP@3=0.3553
+HF fold 1 epoch 3: train_loss=1.6110  val_loss=1.6094  val_MAP@3=0.3981   <span class="c"># ln(5) = 1.6094</span></pre>
+</section>
+
+<!-- ============ ENSEMBLE ============ -->
+<section id="ensemble">
+  <p class="eyebrow">06 — Ensemble &amp; submission</p>
+  <h2>The blend has to earn its place</h2>
+  <p>
+    A coarse weight grid over the simplex (steps of 0.1) searches blends of the three OOF
+    probability matrices. Crucially the blend starts from <em>the best solo model as incumbent</em>
+    and only replaces it if it actually scores higher out-of-fold — averaging is not free, and the
+    notebook submits whichever of the four candidates wins.
+  </p>
+
+  <pre><span class="c"># cell 42 — solo models seed the incumbent, then the grid tries to beat it</span>
+<span class="kw">for</span> name, (oof, pred) <span class="kw">in</span> candidates.items():          <span class="c"># scratch / fine_tuned / tfidf</span>
+    s = map3(oof, y)
+    <span class="kw">if</span> s > best_score:
+        best_name, best_score, best_test = name, s, pred
+
+<span class="kw">for</span> w1 <span class="kw">in</span> [w/10 <span class="kw">for</span> w <span class="kw">in</span> range(11)]:                 <span class="c"># scratch weight</span>
+    <span class="kw">for</span> w2 <span class="kw">in</span> [w/10 <span class="kw">for</span> w <span class="kw">in</span> range(11 - int(w1*10))]:    <span class="c"># hf weight</span>
+        w3 = 1 - w1 - w2                               <span class="c"># tfidf weight</span>
+        s = map3(w1*oof_scratch + w2*oof_hf + w3*oof_tfidf, y)
+        <span class="kw">if</span> s > best_score:
+            best_score, best_test = s, w1*test_scratch + w2*test_hf + w3*test_tfidf
+
+<span class="c"># winner: blend(scratch=0.2, hf=0.7, tfidf=0.1)  |  OOF MAP@3 = 0.68217</span></pre>
+
+  <p>
+    <strong>The winning weights look wrong until you read the fold table.</strong> The blend leans
+    0.7 on DeBERTa — the model with the <em>worst</em> pooled score. That is exactly the point:
+    its two healthy folds are the strongest signal available, and searching weights on OOF
+    predictions finds that, where trusting the headline per-model number would have thrown it away.
+  </p>
+
+  <h3>Submission, then four assertions</h3>
+  <p>
+    Predictions are converted to <code>"A D C"</code> strings and written with the column names read
+    from <code>sample_submission.csv</code>. Before writing, four checks: row count matches the test
+    set, every prediction has exactly three tokens, all three are distinct, and all three are valid
+    letters.
+  </p>
+  <pre class="small"><span class="c"># cell 43 — output</span>
+wrote submission.csv: (500, 2) | built from: blend(scratch=0.2, hf=0.7, tfidf=0.1)
+
+ ID  Prediction
+  1  A D C
+  2  B D E
+  3  B E D</pre>
+</section>
+
+<!-- ============ ENGINEERING ============ -->
+<section id="engineering">
+  <p class="eyebrow">07 — Engineering</p>
+  <h2>Three things that were not about modelling</h2>
+
+  <h3>A real bug: fp16 checkpoints break AMP</h3>
+  <p>
+    Training crashed with <code>"Attempting to unscale FP16 gradients"</code>. Recent
+    <code>transformers</code> defaults to <code>dtype='auto'</code>, and
+    <code>deberta-v3-base</code> ships fp16 weights — so the model <em>and its gradients</em> came
+    out fp16, and <code>GradScaler.unscale_()</code> refused them. Mixed precision needs fp32 master
+    weights with fp16 confined to the autocast region. Forcing fp32 at load fixed it.
+  </p>
+  <pre>model = AutoModelForMultipleChoice.from_pretrained(name, dtype=torch.float32)
+<span class="kw">return</span> model.float()   <span class="c"># fp32 master weights; fp16 only inside autocast</span></pre>
+
+  <h3>Caching, so iterating on the blend costs seconds not hours</h3>
+  <p>
+    A full run is 1–1.5 GPU-hours, almost all of it the DeBERTa fine-tune. Each model's
+    <code>(oof, test)</code> prediction pair is memoised to <code>artifacts/*.npy</code>, so
+    re-running the ensemble cell to tweak weights reloads instead of retraining.
+  </p>
+  <pre><span class="kw">def</span> cached(name, fn):
+    <span class="kw">if</span> REUSE_CACHE <span class="kw">and</span> os.path.exists(oof_path) <span class="kw">and</span> os.path.exists(test_path):
+        <span class="kw">return</span> np.load(oof_path), np.load(test_path)
+    oof, pred = fn()
+    np.save(oof_path, oof); np.save(test_path, pred)
+    <span class="kw">return</span> oof, pred</pre>
+
+  <h3>Runs unchanged on CPU, one GPU, or two</h3>
+  <p>
+    <code>to_parallel()</code> wraps models in <code>nn.DataParallel</code> only when more than one
+    GPU is visible, and the loss is collapsed with <code>loss.mean()</code> because DataParallel
+    returns one loss per replica. A <code>FAST_MODE</code> flag drops to 2 folds and 1 epoch for a
+    wiring smoke test, and <code>RUN_FINE_TUNE = False</code> skips the transformer entirely on
+    CPU-only machines — the skipped model then contributes uniform probabilities to the blend.
+  </p>
+
+  <div class="note">
+    <div class="t">Batch size 2 is not a typo</div>
+    <p>
+      A multiple-choice head materialises five sequences per row, so per-step memory is 5× a normal
+      classifier at the same nominal batch size. The fix is <code>batch_size=2</code> with
+      <code>grad_accum=8</code> — an effective batch of 16 that fits in T4 memory.
+    </p>
+  </div>
+</section>
+
+<!-- ============ NEXT ============ -->
+<section id="next">
+  <p class="eyebrow">08 — Reflection</p>
+  <h2>What I would do differently</h2>
+  <ul>
+    <li><strong>Stabilise the transformer first.</strong> Layer-wise LR decay, longer warmup, and
+      multi-seed averaging would most likely fix the fold-1 collapse. That single fold is worth more
+      than any new model — recovering it moves the transformer from 0.576 to roughly 0.65 on its own.</li>
+    <li><strong>Reframe as entailment.</strong> An NLI-style cross-encoder ("does this option follow
+      from the prompt?") suits minimal-edit distractors better than a plain multiple-choice head.</li>
+    <li><strong>Add sentence-embedding similarity</strong> as a feature into the linear model — it is
+      the cheapest way to give the strongest model semantic signal it currently lacks.</li>
+    <li><strong>Calibrate the length and position priors explicitly</strong> instead of leaving them
+      inside the TF-IDF feature block, where their contribution is not separable.</li>
+  </ul>
+
+  <h3>Honest caveats</h3>
+  <ul>
+    <li>The <strong>~0.75 leaderboard score comes from a commit message</strong>, not from a run
+      captured in the current notebook. The OOF numbers on this page are the ones reproducible
+      from the notebook as it stands.</li>
+    <li>The deployed static demo runs a <strong>word-overlap heuristic</strong> on user-typed
+      questions, not the trained model — a static page has no backend to run DeBERTa on unseen
+      text. Real GPU-computed predictions are available there via test-set lookup, and the UI
+      labels the distinction.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <strong>Sharik Hassan</strong> · IIT Madras BS (Data Science) · Deep Learning &amp; GenAI, T2 2026 ·
+  Roll No. 22f3001704<br>
+  Full pipeline in a single 45-cell Kaggle notebook. Experiment tracking in Weights &amp; Biases.
+  Source repository available on request.
+</footer>
+
+<script>
+(function () {
+  var btn = document.getElementById('themeBtn');
+  var root = document.documentElement;
+  function current() {
+    return root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+  function paint() { btn.textContent = current() === 'dark' ? 'Light' : 'Dark'; }
+  btn.addEventListener('click', function () {
+    root.setAttribute('data-theme', current() === 'dark' ? 'light' : 'dark');
+    paint();
+  });
+  paint();
+})();
+</script>
+
+</body>
+</html>
